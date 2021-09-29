@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from sklearn.cluster import KMeans
+from sklearn.datasets import make_blobs
 
 import imageio
 import os
@@ -22,17 +23,18 @@ def rand_points(n):
     points = [] 
     for i in range(n): 
         point = Point(np.random.randint(0, 100), np.random.randint(0, 100)) 
-        points.append(point) 
+        points.append(point)
     return points
 
-def three_cluster_points():
+def get_r_points():
     points = []
+    X, y_true = make_blobs(n_samples=300, centers=5,
+                       cluster_std=0.50, random_state=0)
 
-    for i in range(100):
-        points.append(Point(np.random.randint(0, 100), np.random.randint(0, 100)))
-        points.append(Point(np.random.randint(300, 400), np.random.randint(0, 100)))
-        points.append(Point(np.random.randint(300, 400), np.random.randint(300, 400)))
-    return points
+    for xy in X:
+        points.append(Point(xy[0], xy[1]))
+
+    return points, y_true
  
 def centroids(points, k): 
     x_center = np.mean(list(map(lambda p: p.x, points)))
@@ -63,30 +65,17 @@ def nearest_centroids(points, centroids):
                 min_dist = temp
                 point.cluster = i
 
-# https://www.analyticsvidhya.com/blog/2021/04/k-means-clustering-simplified-in-python/
- 
-if __name__ == "__main__": 
-    n = 500 # кол-во тчк 
-    k = 3 # кол-во кластеров 
-    points = rand_points(n)
-    points = three_cluster_points()
+def clasters_calculate(points, k):
+
     centers = centroids(points, k)
-
-    # centers = []
-    # for i in range(k):
-    #     centers.append(points[np.random.randint(0, len(points))])
-    # plt.scatter(list(map(lambda p: p.x, points)), list(map(lambda p: p.y, points))) 
-    # plt.scatter(list(map(lambda p: p.x, centers)), list(map(lambda p: p.y, centers)), color = 'r') 
-
     nearest_centroids(points, centers)
 
-    colors = ["r", "g", "black", "blue"]
-
     iteration = 0
-
     past_centers = [Point(-1, -1)] * k
 
     while True:
+
+        colors = []
 
         all_eq = True
 
@@ -105,41 +94,81 @@ if __name__ == "__main__":
         for point in points:
             clusters_points[point.cluster].append(point)
 
-        for i, center in enumerate(centers):
-            plt.scatter(center.x, center.y, color=colors[i], linewidths=6, marker='v')
         for cluster in clusters_points:
-            plt.scatter(list(map(lambda l: l.x, cluster)), list(map(lambda l: l.y, cluster)), color=colors[cluster[0].cluster], linewidths=3)
-
+            p = plt.scatter(list(map(lambda l: l.x, cluster)), list(map(lambda l: l.y, cluster)), linewidths=3)
+            colors.append(p.get_facecolor())
+        for i, center in enumerate(centers):
+            plt.scatter(center.x, center.y, linewidths=6, marker='v', color=colors[i])
         past_centers = centers
         centers = []
 
         for cluster in clusters_points:
             centers.append(new_center(cluster))
-            # centers.append(centroids(cluster, 1)[0])
         
         nearest_centroids(points, centers)
-        print(f"{centers[0].x}, {centers[0].y}")
-        plt.savefig(f"{iteration}.png")
+        # print(f"{centers[0].x}, {centers[0].y}")
+        plt.savefig(f"{iteration}_{k}.png")
         iteration += 1
         plt.close()
-        # plt.show()
 
     plt.close()
     for cluster in clusters_points:
-        plt.scatter(list(map(lambda l: l.x, cluster)), list(map(lambda l: l.y, cluster)), color=colors[cluster[0].cluster], linewidths=3)
-    plt.savefig("res.png")
+        plt.scatter(list(map(lambda l: l.x, cluster)), list(map(lambda l: l.y, cluster)), linewidths=3)
+    plt.savefig(f"res_{k}.png")
 
-    print(list(map(lambda x: x.cluster, points)))
+    # print(list(map(lambda x: x.cluster, points)))
+    # print(y_true)
 
-    with imageio.get_writer('res.gif', mode='I') as writer:
-        for filename in [f'{i}.png' for i in range(iteration)]:
+    s = 0
+    for i, cluster in enumerate(clusters_points):
+        cluster_center = new_center(cluster)
+        for j, point in enumerate(cluster):
+            s += dist(cluster_center, point)
+
+    with imageio.get_writer(f'res_{k}.gif', mode='I') as writer:
+        for filename in [f'{i}_{k}.png' for i in range(iteration)]:
             image = imageio.imread(filename)
             writer.append_data(image)
 
     # Remove files
-    for filename in set([f'{i+1}.png' for i in range(iteration-1)]):
+    for filename in set([f'{i+1}_{k}.png' for i in range(iteration-1)]):
         os.remove(filename)
 
-    kmeans = KMeans(n_clusters=3, random_state=0).fit(np.array([list(map(lambda p: p.x, points)), list(map(lambda p: p.y, points))]))
+    return s
 
-    print(kmeans.labels_)
+if __name__ == "__main__": 
+    n = 500 # кол-во точек
+    k = 4 # кол-во кластеров 
+    points = rand_points(n)
+    points, y_true = get_r_points()
+
+    # for i in range(1, 7):
+    #     print(clasters_calculate(points, i))
+
+    past_r = clasters_calculate(points, 1)
+    rs = [past_r]
+    diffs = []
+    i = 2
+    while True:
+        r = clasters_calculate(points, i)
+        print(past_r)
+        print(r)
+        print(past_r - r)
+        print("--------------")
+        diffs.append(past_r - r)
+        rs.append(r)
+        if past_r - r < 20:
+            break
+        past_r = r
+        i += 1
+
+    print(f"Оптимальное количество кластеров = {i - 1}")
+
+    # print(diffs)
+
+    plt.close()
+    plt.plot(range(len(rs)), rs)
+    plt.scatter(range(len(rs)), rs)
+    plt.xlabel("Кол-во кластеров")
+    plt.ylabel("Изменение расстояния")
+    plt.show()
