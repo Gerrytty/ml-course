@@ -120,9 +120,6 @@ def clusters_calculate(points, k, plot=False):
         plt.savefig(f"res_{k}.png")
         plt.close()
 
-    # print(list(map(lambda x: x.cluster, points)))
-    # print(y_true)
-
     s = 0  # intra-cluster distance
     for i, cluster in enumerate(clusters_points):
         cluster_center = new_center(cluster)
@@ -200,6 +197,11 @@ if __name__ == "__main__":
     n = 300  # кол-во точек
     k = 4  # кол-во кластеров
 
+    # Беру рандомные точки, распределенные так чтобы было k кластеров
+    # из sklearn чтобы потом визуально было видно что алгоритм работает
     points, y_true = get_r_points(n, k)
 
     get_optimal_clusters_number(points)
+
+    # чтобы посмотреть визуализацию алгоритма нужно запустить следующую функцию
+    # clusters_calculate(points, k, plot=True)
